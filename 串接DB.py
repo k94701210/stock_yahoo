@@ -1,5 +1,6 @@
+import yfinance as yf
 import pymssql
-import random
+import schedule
 import time
 
 """

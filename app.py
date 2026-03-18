@@ -20,15 +20,27 @@ def ticker_summary(id):
     print(f'目前價格:{info.last_price}')
 
  
+def ticker_history(id):
+    tick=yf.Ticker(id)
+    pdate=tick.history(period="3d")
+    print(pdate)
+
+def ticker_download():
+    stocks= ["2330.TW","2345.TW","MSFT"]
+    datas=yf.download(stocks,period="3d")
+    print(datas)
+
+ticker_download()
+# ticker_history("2330.TW")
 
 #抓取台積電資訊
 #stock_info("2330.TW")
 #stock_info("2345.TW")
 
-print("-----TSMC------")
-ticker_summary("2330.TW")
+# print("-----TSMC------")
+# ticker_summary("2330.TW")
 
-print("-----智邦------")
-ticker_summary("2345.TW")
+# print("-----智邦------")
+# ticker_summary("2345.TW")
 
 
