@@ -1,87 +1,55 @@
-import yfinance as yf
-import pymssql
-import schedule
 import time
-from datetime import datetime
+import random
+from playwright.sync_api import sync_playwright
+# 修正導入方式：直接導入整個模組
+import playwright_stealth as stealth 
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
-# =========================
-# 資料庫連線設定
-# =========================
-server = "k94701210.database.windows.net"
-database = "free-sql-db-2916645"
-user = "dbeng"
-password = "Ab123456"   # ⚠️ 建議改用環境變數
+# ... (中間網址設定不變)
 
-# =========================
-# 取得股票資料
-# =========================
-def get_stock_data(stock_id):
-    tick = yf.Ticker(stock_id)
-    info = tick.fast_info
-    
-    sid = stock_id.split(".")[0]
-
-    return {
-        "sid": sid,
-        "price": info.last_price,
-        "sname": tick.info.get("shortName") or "Unknown"
-    }
-
-# =========================
-# 寫入資料庫
-# =========================
-def insert_db(data):
-    INS_SQL = """
-        INSERT INTO dbo.stocks (sid, sname, price, pdate)
-        VALUES (%s, %s, %s, %s)
-    """
-
-    try:
-        conn = pymssql.connect(server, user, password, database)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            INS_SQL,
-            (
-                data["sid"],
-                data["sname"],
-                float(data["price"]),
-                datetime.now()
-            )
+def get_chapters_stealth():
+    with sync_playwright() as p:
+        # headless=False 讓你可以看到瀏覽器視窗，這對過驗證很重要
+        browser = p.chromium.launch(headless=False) 
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
+        page = context.new_page()
+        
+        # 修正後的呼叫方式：模組名.函數名
+        stealth.stealth_sync(page)
+        
+        links = []
+        # 建議優先嘗試不帶 .htm 的版本
+        target_url = "https://www.69shuba.com/book/58764/" 
+        
+        print(f"正在嘗試開啟目錄：{target_url}")
+        try:
+            page.goto(target_url, wait_until="networkidle", timeout=60000)
+            
+            # --- 重要：如果看到驗證碼，請手動點擊 ---
+            print("檢查瀏覽器視窗中...如有驗證碼請手動完成。")
+            time.sleep(10) # 留 10 秒讓你觀察或手動操作
 
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        print(f"✅ 寫入成功: {data['name']} {data['price']}")
-
-    except Exception as e:
-        print(f"❌ DB錯誤: {e}")
-
-# =========================
-# 主執行邏輯
-# =========================
-def job():
-    print("🚀 開始抓資料...")
-
-    stocks = ["2330.TW"]
-
-    for s in stocks:
-        data = get_stock_data(s)
-        insert_db(data)
-
-    print("⏱ 完成一次更新\n")
-
-# =========================
-# 排程（每30秒）
-# =========================
-schedule.every(5).seconds.do(job).until("21:00")
-
-print("📡 系統啟動...")
-
-while True:
-    schedule.run_pending()
-    time.sleep(1)
-
-
+            html = page.content()
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # 69書吧目錄解析
+            catalog = soup.select('.catalog ul li a')
+            for a in catalog:
+                href = a.get('href')
+                if href and ('.htm' in href or 'book' in href):
+                    links.append({
+                        'title': a.text.strip(),
+                        'url': urljoin(target_url, href)
+                    })
+            
+            if links:
+                print(f"✅ 成功找到 {len(links)} 個章節！")
+            
+        except Exception as e:
+            print(f"❌ 發生錯誤: {e}")
+        
+        browser.close()
+        return links
